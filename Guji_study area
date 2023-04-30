@@ -1,0 +1,251 @@
+library(sf)
+library(raster)
+library(ggplot2)
+
+setwd("C:/Users/Win10/Desktop/R-folder")
+
+eth <- st_read("eth_admbnda_adm3_csa_bofedb_2021.shp")
+
+ggplot() + geom_sf(data = eth) + theme_bw()
+
+Guji <- subset(eth, ADM2_EN=="Guji")
+
+ggplot() + geom_sf(data = Guji) + theme_bw()
+
+
+df <- brick('agg_terraclimate_ppt_1958_CurrentYear_GLOBE.nc')
+
+dates <- seq(as.Date('1980-01-01'), as.Date('2020-12-31'), 'month')
+
+precip_new <- setZ(df,dates)
+
+months <-  as.integer(format(dates, "%m"))
+#Apply mean fuction on the monthly dataset
+
+mon_mean_rainfall<- stackApply(precip_new, months, fun=mean)
+
+mon_mean_rainfall<- setZ(mon_mean_rainfall, month.abb)
+
+rf_mon <- mask(crop(mon_mean_rainfall, extent(sidas)), sidas)
+
+names(rf_mon)<-month.abb
+
+panel_prcp=c("#F9FFAF" ,"#E0F6AB" ,"#C7ECA7", "#AFE2A3", "#96D7A1", "#7FCD9F"
+             ,"#68C19D" ,"#51B69C", "#3BAA9A", "#259E98", "#109195" ,"#028491"
+             ,"#09778D" ,"#186A87" ,"#245D81" ,"#2E4F79")
+
+
+library(sf)
+library(raster)
+library(rgdal)
+library(latticeExtra)
+#setwd("C:/Users/Markos/OneDrive/Desktop/R basic/sidama")
+ETH_shape<- st_read("eth_admbnda_adm3_csa_bofedb_2021.shp")
+library(sp)
+library(sf)
+Sidama <- st_as_sf(subset(eth, ADM2_EN=="Guji"))
+shape <- readOGR("eth_admbnda_adm3_csa_bofedb_2021.shp")
+sidas <- shape[shape$ADM2_EN == "Guji", ]
+nuts <- spTransform(sidas, CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +no_defs"))
+
+my.at <- seq(0, 300, by = 50)
+library(cptcity)
+png("monthly_mean_guji.png", width = 7, height = 5, units = 'in', res = 300)
+spplot(rf_mon,col.regions=panel_prcp, at=my.at, layout = c(4, 3),
+       main=list(''), par.settings=list(fontsize=list(text=16)),
+       scales = list(x=list(draw=T,cex=0.8), y=list(draw=T,cex=0.8),
+                     tck = c(-0.3,0), alternating=FALSE),
+       colorkey = list(title = " ",
+                       title.gpar = list(cex = 0.5,
+                                         font = 3,
+                                         col = '#2E4F79')))+
+  layer(sp.lines(nuts, lwd=0.8, col='black'))
+
+dev.off()
+
+library(cmsafops)
+
+selmon(var = "ppt", month = c(12,1,2), infile = "agg_terraclimate_ppt_1958_CurrentYear_GLOBE.nc", 
+outfile = "DJF_terra_precip_1980_2020.nc")
+
+selmon(var = "ppt", month = c(3, 4,5), infile = "agg_terraclimate_ppt_1958_CurrentYear_GLOBE.nc", 
+       outfile = "MAM_terra_precip_1980_2020.nc")
+
+selmon(var = "ppt", month = c(6,7,8), infile = "agg_terraclimate_ppt_1958_CurrentYear_GLOBE.nc", 
+       outfile = "JJA_terra_precip_1980_2020.nc")
+
+selmon(var = "ppt", month = c(9, 10, 11), infile = "agg_terraclimate_ppt_1958_CurrentYear_GLOBE.nc", 
+       outfile = "SON_terra_precip_1980_2020.nc")
+
+
+seassum(var = "ppt", infile = "DJF_terra_precip_1980_2020.nc", 
+        outfile = "seasonal_sum_DJF_1980_2020.nc")
+seassum(var = "ppt", infile = "MAM_terra_precip_1980_2020.nc", 
+        outfile = "seasonal_sum_mam_1980_2020.nc")
+
+
+seassum(var = "ppt", infile = "JJA_terra_precip_1980_2020.nc", 
+        outfile = "seasonal_sum_JJA_1980_2020.nc")
+seassum(var = "ppt", infile = "SON_terra_precip_1980_2020.nc", 
+        outfile = "seasonal_sum_son_1980_2020.nc")
+
+djf <- calc(brick("seasonal_sum_DJF_1980_2020.nc"), mean)
+
+
+mam <- calc(brick("seasonal_sum_mam_1980_2020.nc"), mean)
+
+jja <- calc(brick("seasonal_sum_JJA_1980_2020.nc"), mean)
+ son <- calc(brick("seasonal_sum_son_1980_2020.nc"), mean)
+
+ 
+ seas <- stack(djf, mam, jja,son)
+ 
+ sea_mean <- mask(crop(seas, extent(sidas)), sidas)
+ 
+ names(sea_mean)<-c("DJF", "MAM", "JJA", "SON")
+ 
+ seas.at <- seq(0, 600, by = 100)
+ 
+ png("seasonal_mean_guji.png", width = 7, height = 5, units = 'in', res = 300)
+ spplot(sea_mean,col.regions=panel_prcp, at=seas.at, layout = c(2, 2),
+        main=list(''), par.settings=list(fontsize=list(text=16)),
+        scales = list(x=list(draw=T,cex=0.8), y=list(draw=T,cex=0.8),
+                      tck = c(-0.3,0), alternating=FALSE),
+        colorkey = list(title = " ",
+                        title.gpar = list(cex = 0.5,
+                                          font = 3,
+                                          col = '#2E4F79')))+
+   layer(sp.lines(nuts, lwd=0.8, col='black'))
+ 
+ dev.off()
+ 
+ 
+ 
+ tmin <- brick("agg_terraclimate_tmin_1958_CurrentYear_GLOBE.nc")
+ 
+ tmax <- brick("agg_terraclimate_tmax_1958_CurrentYear_GLOBE.nc")
+
+ tmean <- (tmin+tmax)/2 
+
+ 
+ temp_new <- setZ(tmean,dates)
+ mon_mean_temp<- stackApply(temp_new, months, fun=mean)
+ mon_mean_temp<- setZ(mon_mean_temp, month.abb)
+ 
+ temp_mon <- mask(crop(mon_mean_temp, extent(sidas)), sidas)
+ 
+ names(temp_mon)<-month.abb 
+
+ panel_temp=c("#FFFFC8","#FFF8BD" ,"#FDEDAB" ,"#FBE093" ,"#F9D277", "#F7C252", "#F6B00B","#F49D00" ,
+              "#F28800","#EF7000","#EB5500", "#DF3A00" ,"#CA2700" ,"#B21400","#980217","#7D0025") 
+ 
+ temp.at <- seq(5, 35, by = 4)
+ library(pals)
+ png("monthly_mean_temp_guji.png", width = 7, height = 5, units = 'in', res = 300)
+ spplot(temp_mon,col.regions=coolwarm(100), at=temp.at, layout = c(4, 3),
+        main=list(''), par.settings=list(fontsize=list(text=16)),
+        scales = list(x=list(draw=T,cex=0.8), y=list(draw=T,cex=0.8),
+                      tck = c(-0.3,0), alternating=FALSE),
+        colorkey = list(title = " ",
+                        title.gpar = list(cex = 0.5,
+                                          font = 3,
+                                          col = '#2E4F79')))+
+   layer(sp.lines(nuts, lwd=0.8, col='black'))
+dev.off() 
+
+# maximum  temperature 
+
+selmon(var = "tmax", month = c(12,1,2), infile = "agg_terraclimate_tmax_1958_CurrentYear_GLOBE.nc", 
+       outfile = "DJF_terra_tmax_1980_2020.nc")
+
+selmon(var = "tmax", month = c(3, 4,5), infile = "agg_terraclimate_tmax_1958_CurrentYear_GLOBE.nc", 
+       outfile = "MAM_terra_tmax_1980_2020.nc")
+
+selmon(var = "tmax", month = c(6,7,8), infile = "agg_terraclimate_tmax_1958_CurrentYear_GLOBE.nc", 
+       outfile = "JJA_terra_tmax_1980_2020.nc")
+
+selmon(var = "tmax", month = c(9, 10, 11), infile = "agg_terraclimate_tmax_1958_CurrentYear_GLOBE.nc", 
+       outfile = "SON_terra_tmax_1980_2020.nc")
+
+
+seasmean(var = "tmax", infile = "DJF_terra_tmax_1980_2020.nc", 
+        outfile = "seasonal_mean_DJF_1980_2020.nc")
+seasmean(var = "tmax", infile = "MAM_terra_tmax_1980_2020.nc", 
+        outfile = "seasonal_mean_mam_1980_2020.nc")
+
+
+seasmean(var = "tmax", infile = "JJA_terra_tmax_1980_2020.nc", 
+        outfile = "seasonal_mean_JJA_1980_2020.nc", overwrite = T)
+seasmean(var = "tmax", infile = "SON_terra_tmax_1980_2020.nc", 
+         outfile = "seasonal_mean_son_1980_2020.nc", overwrite = T)
+
+# minimum temperature 
+
+selmon(var = "tmin", month = c(12,1,2), infile = "agg_terraclimate_tmin_1958_CurrentYear_GLOBE.nc", 
+       outfile = "DJF_terra_tmin_1980_2020.nc")
+
+selmon(var = "tmin", month = c(3, 4,5), infile = "agg_terraclimate_tmin_1958_CurrentYear_GLOBE.nc", 
+       outfile = "MAM_terra_tmin_1980_2020.nc")
+
+selmon(var = "tmin", month = c(6,7,8), infile = "agg_terraclimate_tmin_1958_CurrentYear_GLOBE.nc", 
+       outfile = "JJA_terra_tmin_1980_2020.nc")
+
+selmon(var = "tmin", month = c(9, 10, 11), infile = "agg_terraclimate_tmin_1958_CurrentYear_GLOBE.nc", 
+       outfile = "SON_terra_tmin_1980_2020.nc")
+
+
+seasmean(var = "tmin", infile = "DJF_terra_tmin_1980_2020.nc", 
+         outfile = "seasonal_mean_tmin_DJF_1980_2020.nc")
+seasmean(var = "tmin", infile = "MAM_terra_tmin_1980_2020.nc", 
+         outfile = "seasonal_mean_tmin_mam_1980_2020.nc")
+
+
+seasmean(var = "tmin", infile = "JJA_terra_tmin_1980_2020.nc", 
+         outfile = "seasonal_mean_tmin_JJA_1980_2020.nc", overwrite = T)
+seasmean(var = "tmin", infile = "SON_terra_tmin_1980_2020.nc", 
+         outfile = "seasonal_mean_tmin_son_1980_2020.nc", overwrite = T)
+
+tmax_DJF <- brick("seasonal_mean_DJF_1980_2020.nc")
+tmin_DJF <- brick("seasonal_mean_tmin_DJF_1980_2020.nc")
+
+tmean_DJF <- calc((tmax_DJF+tmin_DJF)/2, mean)
+
+
+tmax_MAM <- brick("seasonal_mean_mam_1980_2020.nc")
+tmin_MAM <- brick("seasonal_mean_tmin_mam_1980_2020.nc")
+
+tmean_MAM <- calc((tmax_MAM+tmin_MAM)/2, mean)
+
+tmax_JJA <- brick("seasonal_mean_JJA_1980_2020.nc")
+tmin_JJA <- brick("seasonal_mean_tmin_JJA_1980_2020.nc")
+
+tmean_JJA <- calc((tmax_JJA+tmin_JJA)/2, mean)
+
+
+
+tmax_SON <- brick("seasonal_mean_son_1980_2020.nc")
+tmin_SON <- brick("seasonal_mean_tmin_son_1980_2020.nc")
+
+tmean_SON <- calc((tmax_SON+tmin_SON)/2, mean)
+
+
+tmean_seas <- stack(tmean_DJF, tmean_MAM, tmean_JJA, tmean_SON)
+
+names(tmean_seas)<- c("DJF", "MAM", "JJA", "SON")
+temp_seas <- mask(crop(tmean_seas, extent(sidas)), sidas)
+library(RColorBrewer)
+library(latticeExtra)
+col_spec <- colorRampPalette(rev(brewer.pal(11, "Spectral")))
+
+temp.att <- seq(5, 35, by = 3)
+png("Seasonal_mean_temp_guji.png", width = 7, height = 7, units = 'in', res = 300)
+spplot(temp_seas,col.regions=col_spec(11), at=temp.att, layout = c(2, 2),
+       main=list(''), par.settings=list(fontsize=list(text=16)),
+       scales = list(x=list(draw=T,cex=0.8, seq(38.4, 40, 6)), y=list(draw=T,cex=0.8),
+                     tck = c(-0.3,0), alternating=FALSE),
+       colorkey = list(title = " ",
+                       title.gpar = list(cex = 0.6,
+                                         font = 3,
+                                         col = '#2E4F79')))+
+  layer(sp.lines(nuts, lwd=0.8, col='black'))
+dev.off() 
